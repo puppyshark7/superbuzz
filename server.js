@@ -36,6 +36,7 @@ function createRoom(hostId, mode) {
     code,
     hostId,
     mode: mode || 'bee',
+    threeBuzzRule: true,
     players: new Map(),
     teams: new Map(),
     playerScores: new Map(),
@@ -74,6 +75,7 @@ function getFullRoomState(room) {
   }
   return {
     code: room.code, mode: room.mode, players, teams,
+    threeBuzzRule: room.threeBuzzRule !== false,
     buzzerOpen: room.buzzerOpen, buzzQueue: room.buzzQueue,
     lockedOutPlayers: Array.from(room.lockedOutPlayers),
     lockedOutTeams: Array.from(room.lockedOutTeams),
@@ -175,6 +177,14 @@ io.on('connection', (socket) => {
     const room = getRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id) return;
     room.mode = mode;
+    broadcastRoomState(room);
+  });
+
+  socket.on('room:set-three-buzz-rule', ({ enabled }) => {
+    const room = getRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id) return;
+    room.threeBuzzRule = !!enabled;
+    console.log(`[setting] Room ${room.code} 3-buzz rule set to: ${room.threeBuzzRule}`);
     broadcastRoomState(room);
   });
 
@@ -295,11 +305,11 @@ io.on('connection', (socket) => {
       room.buzzQueue = room.buzzQueue.filter(b => b.teamId !== recognized.teamId);
     }
 
-    // For Bee mode, track incorrect guesses and trigger deduction + next question on 3rd incorrect
+    // For Bee mode, track incorrect guesses and trigger deduction + next question on 3rd incorrect if rule enabled
     if (room.mode === 'bee') {
       room.questionIncorrectCount = (room.questionIncorrectCount || 0) + 1;
 
-      if (room.questionIncorrectCount >= 3) {
+      if (room.threeBuzzRule !== false && room.questionIncorrectCount >= 3) {
         const cur = room.playerScores.get(recognized.playerId) || 0;
         room.playerScores.set(recognized.playerId, cur - 1);
 
@@ -313,7 +323,7 @@ io.on('connection', (socket) => {
         room.buzzerOpenTime = null;
         room.justAdvancedFromCorrect = true;
 
-        console.log(`[incorrect-3rd] ${recognized.playerName} (-1 point) → 3rd incorrect guess triggered Q${room.questionNumber}`);
+        console.log(`[incorrect-3rd] ${recognized.playerName} (-1 point) -> 3rd incorrect guess triggered Q${room.questionNumber}`);
         broadcastRoomState(room);
         io.to(room.code).emit('answer:result', {
           correct: false,
@@ -413,5 +423,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
-  console.log(`\n  🐝 SuperBuzz server running at http://localhost:${PORT}\n`);
+  console.log(`\n  SuperBuzz server running at http://localhost:${PORT}\n`);
 });

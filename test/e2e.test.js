@@ -39,7 +39,7 @@ async function runTests() {
       beeRoomCode = res.code;
       assert.equal(res.state.mode, 'bee');
       assert.equal(res.state.players.length, 0);
-      console.log(`✓ Room created with code: ${beeRoomCode}`);
+      console.log(`[PASS] Room created with code: ${beeRoomCode}`);
       resolve();
     });
   });
@@ -74,14 +74,14 @@ async function runTests() {
     charlieSocket.emit('room:join', { code: beeRoomCode, name: 'Alice' }, (res) => {
       assert(!res.success, 'Should not allow duplicate name');
       assert(res.error.includes('already taken'));
-      console.log('✓ Duplicate names rejected');
+      console.log('[PASS] Duplicate names rejected');
       charlieSocket.disconnect();
       resolve();
     });
   });
 
   await wait(200); // Allow calibration ping cycle
-  console.log('✓ Players joined and calibrated');
+  console.log('[PASS] Players joined and calibrated');
 
   // 3. Test Millisecond-Precision Lag Correction Buzz Resolution
   console.log('\nTest 3: Millisecond-Precision Lag Correction Buzz Resolution');
@@ -106,10 +106,10 @@ async function runTests() {
     hostSocket.emit('buzzer:close');
   });
 
-  console.log(`✓ Buzz queue recorded. Entries: ${latestState?.buzzQueue?.length || 0}`);
+  console.log(`[PASS] Buzz queue recorded. Entries: ${latestState?.buzzQueue?.length || 0}`);
   if (latestState?.buzzQueue?.length > 0) {
     const winner = latestState.buzzQueue[0];
-    console.log(`✓ Recognized first buzz: ${winner.playerName} (adjusted: ${winner.adjustedTime}ms, raw: ${winner.rawTime}ms, rtt: ${winner.rtt}ms)`);
+    console.log(`[PASS] Recognized first buzz: ${winner.playerName} (adjusted: ${winner.adjustedTime}ms, raw: ${winner.rawTime}ms, rtt: ${winner.rtt}ms)`);
   }
 
   // 4. Test Lockout after Incorrect Answer (Bee Mode)
@@ -128,7 +128,7 @@ async function runTests() {
   await wait(100);
 
   assert(lockedOutNotified, 'Alice should be rejected due to lockout');
-  console.log('✓ Locked out player cannot buzz again on current question');
+  console.log('[PASS] Locked out player cannot buzz again on current question');
 
   // Bob now buzzes in and answers correctly
   bobSocket.emit('buzzer:buzz');
@@ -149,7 +149,7 @@ async function runTests() {
   assert.equal(stateAfterCorrect.questionNumber, 2, 'Should automatically move to Q2 on correct answer');
   const bobPlayer = stateAfterCorrect.players.find(p => p.id === bobSocket.id);
   assert.equal(bobPlayer.score, 1, 'Bob should have 1 point in Bee mode (+1)');
-  console.log('✓ Correct answer awarded +1 point and automatically moved to next question (Q2)');
+  console.log('[PASS] Correct answer awarded +1 point and automatically moved to next question (Q2)');
 
   // Attempt to emit answer:correct again (simulate re-clicking)
   hostSocket.emit('answer:correct');
@@ -167,7 +167,7 @@ async function runTests() {
 
   const bobPlayerAfter = stateAfterSecondClick.players.find(p => p.id === bobSocket.id);
   assert.equal(bobPlayerAfter.score, 1, 'Bob should still have only 1 point (no infinite points bug)');
-  console.log('✓ Prevented infinite points on repeat clicks');
+  console.log('[PASS] Prevented infinite points on repeat clicks');
 
   // Test 3 Incorrect Guesses in Bee Mode: 3rd loses 1 point and triggers next question
   console.log('\nTest 4b: 3 Incorrect Guesses in Bee mode (-1 point on 3rd & auto-advance)');
@@ -213,7 +213,7 @@ async function runTests() {
   assert.equal(charlieAfterPenalty.score, -1, 'CharlieBee should lose 1 point (-1)');
   assert.equal(stateAfterThirdIncorrect.questionNumber, 3, '3rd incorrect guess should auto-advance to Q3');
   assert.equal(stateAfterThirdIncorrect.buzzQueue.length, 0, 'Buzz queue should be empty');
-  console.log('✓ 3rd incorrect guess penalized player (-1 point) and triggered next question (Q3)');
+  console.log('[PASS] 3rd incorrect guess penalized player (-1 point) and triggered next question (Q3)');
 
   // Test Next Question button automatically reopens buzzer
   console.log('\nTest 4c: Next Question button automatically reopens buzzer');
@@ -225,12 +225,68 @@ async function runTests() {
   await openedPromise;
 
   assert.equal(stateAfterNext.buzzerOpen, true, 'Next question should automatically reopen buzzer');
-  console.log('✓ Next Question button automatically reopened the buzzer');
+  console.log('[PASS] Next Question button automatically reopened the buzzer');
 
   charlieBee.disconnect();
   await wait(100);
 
-  // Close buzzer before mode switch
+  // Test 4d: Disabling the 3-buzz rule allows infinite buzzes from non-locked players without penalty
+  console.log('\nTest 4d: Disabling 3-buzz rule allows infinite buzzes from non-locked players');
+  let stateAfterToggle = null;
+  await new Promise(resolve => {
+    hostSocket.once('room:state', (s) => {
+      stateAfterToggle = s;
+      resolve();
+    });
+    hostSocket.emit('room:set-three-buzz-rule', { enabled: false });
+  });
+  assert.equal(stateAfterToggle.threeBuzzRule, false, 'threeBuzzRule should be false');
+
+  // Add a new player (Dave)
+  const dave = await connectClient();
+  dave.on('calibration:ping', (ts) => dave.emit('calibration:pong', ts));
+  await new Promise(resolve => {
+    dave.emit('room:join', { code: beeRoomCode, name: 'Dave' }, resolve);
+  });
+  await wait(100);
+
+  // Q3 is open. Alice buzzes and is wrong (guess 1)
+  aliceSocket.emit('buzzer:buzz');
+  await wait(100);
+  hostSocket.emit('answer:incorrect');
+  await wait(100);
+
+  // Bob buzzes and is wrong (guess 2)
+  bobSocket.emit('buzzer:buzz');
+  await wait(100);
+  hostSocket.emit('answer:incorrect');
+  await wait(100);
+
+  // Dave buzzes and is wrong (guess 3) - with rule disabled: NO -1 penalty and NO auto-advance!
+  dave.emit('buzzer:buzz');
+  await wait(100);
+
+  let stateAfter3rdNoRule = null;
+  await new Promise(resolve => {
+    hostSocket.once('room:state', (s) => {
+      stateAfter3rdNoRule = s;
+      resolve();
+    });
+    hostSocket.emit('answer:incorrect');
+  });
+
+  const davePlayer = stateAfter3rdNoRule.players.find(p => p.id === dave.id);
+  assert.equal(davePlayer.score, 0, 'Dave score should NOT be deducted when 3-buzz rule is disabled');
+  assert.equal(stateAfter3rdNoRule.questionNumber, 3, 'Question should NOT advance when 3-buzz rule is disabled');
+  assert.equal(stateAfter3rdNoRule.buzzerOpen, true, 'Buzzer should remain open for any non-locked players');
+  console.log('[PASS] With 3-buzz rule disabled, 3rd incorrect buzz did not penalize and did not end question');
+
+  dave.disconnect();
+  await wait(100);
+
+  // Advance question to clear lockouts before mode switch
+  hostSocket.emit('question:next');
+  await wait(100);
   hostSocket.emit('buzzer:close');
   await wait(100);
 
@@ -294,7 +350,7 @@ async function runTests() {
   await wait(200);
 
   assert(charlieRejected, 'Charlie should be locked out because teammate Alice answered incorrectly');
-  console.log('✓ History Bowl team lockout successfully locked out all teammates!');
+  console.log('[PASS] History Bowl team lockout successfully locked out all teammates!');
 
   // Bob (Athenians) buzzes in and gets it right
   bobSocket.emit('buzzer:buzz');
@@ -314,10 +370,10 @@ async function runTests() {
 
   const atheniansTeam = finalState.teams.find(t => t.id === teamBlueId);
   assert.equal(atheniansTeam.score, 10, 'Team score should be 10');
-  console.log(`✓ Athenians awarded 10 points: ${atheniansTeam.score}`);
+  console.log(`[PASS] Athenians awarded 10 points: ${atheniansTeam.score}`);
 
   console.log('\n===========================================');
-  console.log('ALL TESTS PASSED SUCCESSFULLY! 🐝 🏆');
+  console.log('ALL TESTS PASSED SUCCESSFULLY!');
   console.log('===========================================');
 
   // Clean up
@@ -329,6 +385,6 @@ async function runTests() {
 }
 
 runTests().catch(err => {
-  console.error('\n❌ Test failure:', err);
+  console.error('\n[FAIL] Test failure:', err);
   process.exit(1);
 });

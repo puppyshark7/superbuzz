@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SuperBuzz — IAC History Bee &amp; Bowl Buzzer</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐝</text></svg>" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -13,7 +12,6 @@
     <div class="landing-container" id="landing">
       <div class="landing-card">
         <div class="logo">
-          <span class="logo-icon">🐝</span>
           <h1>SuperBuzz</h1>
           <p class="subtitle">IAC History Bee &amp; Bowl Buzzer System</p>
         </div>
@@ -25,15 +23,15 @@
               <label class="mode-option">
                 <input type="radio" name="mode" value="bee" checked />
                 <span class="mode-label">
-                  <strong>🐝 History Bee</strong>
-                  <small>Individual — +1 pt, 3rd wrong guess loses 1 pt &amp; triggers next question</small>
+                  <strong>History Bee</strong>
+                  <small>Individual — +1 pt, optional 3-buzz limit &amp; penalty</small>
                 </span>
               </label>
               <label class="mode-option">
                 <input type="radio" name="mode" value="bowl" />
                 <span class="mode-label">
-                  <strong>🏆 History Bowl</strong>
-                  <small>Team — entire team locked out on wrong answers</small>
+                  <strong>History Bowl</strong>
+                  <small>Team — +10 pts, entire team locked out on wrong answers</small>
                 </span>
               </label>
             </div>
@@ -61,7 +59,6 @@
     <div class="dashboard-container hidden" id="host-dashboard">
       <header class="dashboard-header">
         <div class="header-left">
-          <span class="logo-small">🐝</span>
           <h1>SuperBuzz <span class="mode-badge" id="host-mode-badge">BEE</span></h1>
         </div>
         <div class="header-center">
@@ -72,16 +69,27 @@
         </div>
         <div class="header-right">
           <span class="question-badge" id="host-question-num">Q1</span>
-          <button class="btn btn-sm btn-outline" id="btn-leave-room">✕ End</button>
+          <button class="btn btn-sm btn-outline" id="btn-leave-room">End Session</button>
         </div>
       </header>
       <div class="dashboard-grid">
         <div class="panel panel-controls">
           <h2>Buzzer Controls</h2>
           <div class="control-buttons">
-            <button class="btn btn-buzzer-open btn-lg" id="btn-open-buzzer">▶ Open Buzzer</button>
-            <button class="btn btn-buzzer-close btn-lg hidden" id="btn-close-buzzer">⏸ Close Buzzer</button>
+            <button class="btn btn-buzzer-open btn-lg" id="btn-open-buzzer">Open Buzzer</button>
+            <button class="btn btn-buzzer-close btn-lg hidden" id="btn-close-buzzer">Close Buzzer</button>
           </div>
+
+          <!-- 3-Buzz Rule Toggle (Bee Mode) -->
+          <div class="setting-toggle-card" id="setting-three-buzz-card">
+            <label class="toggle-control">
+              <input type="checkbox" id="toggle-three-buzz" checked />
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">3-Buzz Limit Rule</span>
+            </label>
+            <span class="setting-subtext">3rd wrong guess loses 1 pt and advances question</span>
+          </div>
+
           <div class="buzz-result-area hidden" id="buzz-result-area">
             <h3>Recognized Buzz</h3>
             <div class="recognized-buzz" id="recognized-buzz">
@@ -93,12 +101,12 @@
               </div>
             </div>
             <div class="answer-buttons">
-              <button class="btn btn-correct btn-lg" id="btn-correct">✓ Correct (+10)</button>
-              <button class="btn btn-incorrect btn-lg" id="btn-incorrect">✗ Incorrect (Lock Out)</button>
+              <button class="btn btn-correct btn-lg" id="btn-correct">Correct (+1)</button>
+              <button class="btn btn-incorrect btn-lg" id="btn-incorrect">Incorrect (Lock Out)</button>
             </div>
           </div>
           <div class="control-secondary">
-            <button class="btn btn-outline" id="btn-next-question">Next Question →</button>
+            <button class="btn btn-outline" id="btn-next-question">Next Question</button>
             <button class="btn btn-outline btn-danger-outline" id="btn-reset-scores">Reset All Scores</button>
           </div>
           <div class="buzz-queue-section">
@@ -114,14 +122,14 @@
           <div class="panel-header-row">
             <h2 id="teams-panel-title">Players</h2>
             <div class="mode-toggle">
-              <button class="btn btn-sm" id="btn-mode-bee">🐝 Bee</button>
-              <button class="btn btn-sm" id="btn-mode-bowl">🏆 Bowl</button>
+              <button class="btn btn-sm" id="btn-mode-bee">Bee</button>
+              <button class="btn btn-sm" id="btn-mode-bowl">Bowl</button>
             </div>
           </div>
           <div class="team-management hidden" id="team-management">
             <div class="add-team-row">
               <input type="text" id="input-team-name" placeholder="New team name..." class="input" />
-              <button class="btn btn-sm btn-primary" id="btn-add-team">+ Add Team</button>
+              <button class="btn btn-sm btn-primary" id="btn-add-team">Add Team</button>
             </div>
             <div id="teams-list" class="teams-list"></div>
           </div>
@@ -138,7 +146,6 @@
     <div class="player-container hidden" id="player-view">
       <header class="player-header">
         <div class="header-left">
-          <span class="logo-small">🐝</span>
           <span class="player-name-display" id="player-my-name">Player</span>
         </div>
         <div class="header-center">

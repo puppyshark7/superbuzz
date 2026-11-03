@@ -8,17 +8,18 @@ Built with **Node.js, Express, Socket.IO, and Web Audio API**, SuperBuzz feature
 
 ## Key Features
 
-### 🐝 History Bee & 🏆 History Bowl Modes
+### History Bee & History Bowl Modes
 - **History Bee (Individual Competition)**:
   - Players compete individually for personal score tallies.
   - **Scoring**: Correct answer awards **+1 point** and automatically advances to the next question.
   - **3rd Incorrect Penalty & Auto-Advance**: Players who buzz and guess incorrectly are locked out for that question. On the **3rd incorrect buzz**, that third player loses a point (**-1 point**), which automatically ends the question and advances to the next question!
+  - **Configurable 3-Buzz Rule**: The host screen includes a toggle switch to enable or disable the 3-buzz rule. When disabled, non-locked players can buzz infinitely with no penalty cap.
 - **History Bowl (Team Competition)**:
   - Players are grouped into teams (e.g., school teams, historical factions).
   - **Scoring**: Correct answer awards **+10 points** to the team and auto-advances.
   - **Full Team Lockout**: If any member of a team buzzes in and answers incorrectly, their entire team is locked out for the rest of that question, preventing unfair second chances from teammates.
 
-### ⏱️ Millisecond-Precision Lag Correction
+### Millisecond-Precision Lag Correction
 Internet connection differences (such as ping disparity) can give players with lower ping an unfair advantage in buzzer races. SuperBuzz eliminates this with an active round-trip latency calibration system:
 1. **Periodic High-Resolution RTT Sampling**: The server exchanges millisecond-timestamped calibration pings (`performance.now()`) with each client every 3 seconds.
 2. **Median Filtering**: Rolling samples are filtered using a median calculation to reject outlier jitter spikes.
@@ -27,8 +28,8 @@ Internet connection differences (such as ping disparity) can give players with l
    When a buzz event arrives at the server, SuperBuzz computes the participant's physical button press time relative to when the buzzer was opened, eliminating network latency bias.
 4. **Authoritative Buzz Queue**: Buzzes are inserted into an ordered queue according to their adjusted reaction time. The host can see both the raw arrival time, client RTT, and adjusted time down to tenths of a millisecond.
 
-### 🔊 Audio & Visual Feedback
-- Synthesized Web Audio API sound effects for buzzer opening, buzz-in, correct (+10 pts), incorrect/lockout, and question advancement (no audio assets required).
+### Audio & Visual Feedback
+- Synthesized Web Audio API sound effects for buzzer opening, buzz-in, correct, incorrect/lockout, and question advancement (no audio assets required).
 - Responsive giant buzzer button with keyboard binding (`Space` or click/touch).
 - Live latency indicator (green/amber/red with real-time ping readout).
 - Host dashboard featuring full game control, live buzz queue, team assignment, kick controls, and live scoreboards.
@@ -72,10 +73,10 @@ The test suite validates room creation, connection calibration, lag-adjusted buz
 1. Select **History Bee** or **History Bowl** and click **Create Room**.
 2. Share the 5-character **Room Code** with competitors.
 3. For History Bowl, add team names and assign players to their respective teams.
-4. Click **▶ Open Buzzer** when reading the tossup question.
+4. Click **Open Buzzer** when reading the tossup question.
 5. Review the recognized buzz in the timing panel (adjusted time, raw time, RTT).
-6. Click **✓ Correct (+10)** to award points and automatically advance to the next question, or **✗ Incorrect (Lock Out)** to lock out and reopen the buzzer for remaining players.
-7. Click **Next Question →** at any time to advance to the next question and automatically reopen the buzzer in one click.
+6. Click **Correct** to award points and automatically advance to the next question, or **Incorrect** to lock out and reopen the buzzer for remaining players.
+7. Click **Next Question** at any time to advance to the next question and automatically reopen the buzzer in one click.
 
 ### As Player:
 1. Enter the **Room Code** and your **Name**, then click **Join Room**.

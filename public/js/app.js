@@ -97,6 +97,11 @@
   $('#btn-mode-bee').addEventListener('click', () => { socket.emit('room:set-mode', { mode: 'bee' }); });
   $('#btn-mode-bowl').addEventListener('click', () => { socket.emit('room:set-mode', { mode: 'bowl' }); });
 
+  // ── 3-Buzz Rule Setting Toggle ──
+  $('#toggle-three-buzz').addEventListener('change', (e) => {
+    socket.emit('room:set-three-buzz-rule', { enabled: e.target.checked });
+  });
+
   // ── Team Management ──
   $('#btn-add-team').addEventListener('click', () => {
     const name = $('#input-team-name').value.trim();
@@ -122,6 +127,13 @@
     $('#btn-mode-bee').classList.toggle('active', s.mode === 'bee');
     $('#btn-mode-bowl').classList.toggle('active', s.mode === 'bowl');
 
+    // 3-Buzz rule setting visibility & state (Bee mode only)
+    const threeBuzzCard = $('#setting-three-buzz-card');
+    if (threeBuzzCard) {
+      threeBuzzCard.classList.toggle('hidden', s.mode !== 'bee');
+      $('#toggle-three-buzz').checked = s.threeBuzzRule !== false;
+    }
+
     // Team panel title
     $('#teams-panel-title').textContent = s.mode === 'bowl' ? 'Teams & Players' : 'Players';
     $('#team-management').classList.toggle('hidden', s.mode !== 'bowl');
@@ -146,16 +158,20 @@
       
       // Dynamic button labels based on mode and incorrect count
       if (s.mode === 'bee') {
-        $('#btn-correct').textContent = '✓ Correct (+1)';
+        $('#btn-correct').textContent = 'Correct (+1)';
         const count = s.questionIncorrectCount || 0;
-        if (count === 2) {
-          $('#btn-incorrect').textContent = '✗ Incorrect (-1 pt & Next Q)';
+        if (s.threeBuzzRule !== false) {
+          if (count === 2) {
+            $('#btn-incorrect').textContent = 'Incorrect (-1 pt & Next Q)';
+          } else {
+            $('#btn-incorrect').textContent = `Incorrect (Lock Out, ${count + 1}/3)`;
+          }
         } else {
-          $('#btn-incorrect').textContent = `✗ Incorrect (Lock Out, ${count + 1}/3)`;
+          $('#btn-incorrect').textContent = 'Incorrect (Lock Out)';
         }
       } else {
-        $('#btn-correct').textContent = '✓ Correct (+10)';
-        $('#btn-incorrect').textContent = '✗ Incorrect (Lock Out)';
+        $('#btn-correct').textContent = 'Correct (+10)';
+        $('#btn-incorrect').textContent = 'Incorrect (Lock Out)';
       }
 
       const top = s.buzzQueue[0];
@@ -191,7 +207,7 @@
         const p = s.players.find(pl => pl.id === pid);
         return p ? esc(p.name) : pid;
       });
-      lockEl.innerHTML = names.map(n => `<span class="lockout-tag">🔒 ${n}</span>`).join(' ');
+      lockEl.innerHTML = names.map(n => `<span class="lockout-tag">Locked: ${n}</span>`).join(' ');
     }
 
     // Teams list (Bowl mode)
@@ -208,13 +224,13 @@
               <div class="team-card-header">
                 <strong>${esc(t.name)}</strong>
                 <span class="team-score">${t.score} pts</span>
-                <button class="btn btn-xs btn-danger" onclick="removeTeam('${t.id}')">✕</button>
+                <button class="btn btn-xs btn-danger" onclick="removeTeam('${t.id}')">Delete</button>
               </div>
               <div class="team-members">
                 ${members.length === 0 ? '<em class="muted">No members</em>' :
                   members.map(m => `<span class="member-tag">${esc(m.name)}</span>`).join(' ')}
               </div>
-              ${isLockedOut ? '<div class="team-lockout-badge">🔒 LOCKED OUT</div>' : ''}
+              ${isLockedOut ? '<div class="team-lockout-badge">LOCKED OUT</div>' : ''}
             </div>
           `;
         }).join('');
@@ -235,7 +251,7 @@
               <strong>${esc(p.name)}</strong>
               ${team ? `<span class="player-team-tag">${esc(team.name)}</span>` : ''}
               <span class="player-rtt-tag">${p.rtt}ms</span>
-              ${isLocked ? '<span class="player-lockout-tag">🔒</span>' : ''}
+              ${isLocked ? '<span class="player-lockout-tag">[Locked]</span>' : ''}
             </div>
             <div class="player-card-actions">
               ${s.mode === 'bowl' ? `
@@ -374,14 +390,14 @@
     if (correct) {
       SoundFX.correct();
       const pts = points ? ` (+${points})` : '';
-      if (role === 'player') showPlayerFeedback(`✓ ${player.playerName} answered correctly!${pts}`, 'correct');
+      if (role === 'player') showPlayerFeedback(`${player.playerName} answered correctly!${pts}`, 'correct');
     } else {
       SoundFX.incorrect();
       if (role === 'player') {
         if (thirdIncorrect) {
-          showPlayerFeedback(`✗ 3rd incorrect guess! ${player.playerName} lost 1 point (-1). Moving to next question.`, 'incorrect');
+          showPlayerFeedback(`3rd incorrect guess! ${player.playerName} lost 1 point (-1). Moving to next question.`, 'incorrect');
         } else {
-          showPlayerFeedback(`✗ ${player.playerName} answered incorrectly — locked out`, 'incorrect');
+          showPlayerFeedback(`${player.playerName} answered incorrectly — locked out`, 'incorrect');
         }
       }
     }
@@ -389,7 +405,7 @@
 
   socket.on('buzzer:rejected', ({ reason }) => {
     SoundFX.lockout();
-    showPlayerFeedback('🔒 ' + reason, 'lockout');
+    showPlayerFeedback(reason, 'lockout');
   });
 
   socket.on('room:kicked', () => {
