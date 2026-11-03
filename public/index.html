@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuperBuzz — IAC History Bee &amp; Bowl Buzzer</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐝</text></svg>" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Landing Page -->
+    <div class="landing-container" id="landing">
+      <div class="landing-card">
+        <div class="logo">
+          <span class="logo-icon">🐝</span>
+          <h1>SuperBuzz</h1>
+          <p class="subtitle">IAC History Bee &amp; Bowl Buzzer System</p>
+        </div>
+        <div class="landing-actions">
+          <div class="action-section">
+            <h2>Host a Game</h2>
+            <p>Create a room and control the buzzer for your competition.</p>
+            <div class="mode-select">
+              <label class="mode-option">
+                <input type="radio" name="mode" value="bee" checked />
+                <span class="mode-label">
+                  <strong>🐝 History Bee</strong>
+                  <small>Individual — +1 pt, 3rd wrong guess loses 1 pt &amp; triggers next question</small>
+                </span>
+              </label>
+              <label class="mode-option">
+                <input type="radio" name="mode" value="bowl" />
+                <span class="mode-label">
+                  <strong>🏆 History Bowl</strong>
+                  <small>Team — entire team locked out on wrong answers</small>
+                </span>
+              </label>
+            </div>
+            <button class="btn btn-primary btn-lg" id="btn-create-room">Create Room</button>
+          </div>
+          <div class="divider"><span>OR</span></div>
+          <div class="action-section">
+            <h2>Join a Game</h2>
+            <p>Enter the room code from your host.</p>
+            <div class="join-form">
+              <input type="text" id="input-room-code" placeholder="Room Code" maxlength="5" class="input input-code" autocomplete="off" spellcheck="false" />
+              <input type="text" id="input-player-name" placeholder="Your Name" maxlength="30" class="input" autocomplete="off" />
+              <button class="btn btn-secondary btn-lg" id="btn-join-room">Join Room</button>
+            </div>
+            <p class="error-message" id="join-error"></p>
+          </div>
+        </div>
+        <div class="landing-footer">
+          <p>Millisecond-precision lag correction &bull; Real-time WebSocket</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Host Dashboard -->
+    <div class="dashboard-container hidden" id="host-dashboard">
+      <header class="dashboard-header">
+        <div class="header-left">
+          <span class="logo-small">🐝</span>
+          <h1>SuperBuzz <span class="mode-badge" id="host-mode-badge">BEE</span></h1>
+        </div>
+        <div class="header-center">
+          <div class="room-code-display">
+            <span class="room-code-label">Room Code</span>
+            <span class="room-code-value" id="host-room-code">-----</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <span class="question-badge" id="host-question-num">Q1</span>
+          <button class="btn btn-sm btn-outline" id="btn-leave-room">✕ End</button>
+        </div>
+      </header>
+      <div class="dashboard-grid">
+        <div class="panel panel-controls">
+          <h2>Buzzer Controls</h2>
+          <div class="control-buttons">
+            <button class="btn btn-buzzer-open btn-lg" id="btn-open-buzzer">▶ Open Buzzer</button>
+            <button class="btn btn-buzzer-close btn-lg hidden" id="btn-close-buzzer">⏸ Close Buzzer</button>
+          </div>
+          <div class="buzz-result-area hidden" id="buzz-result-area">
+            <h3>Recognized Buzz</h3>
+            <div class="recognized-buzz" id="recognized-buzz">
+              <div class="buzz-player-name" id="buzz-player-name">—</div>
+              <div class="buzz-timing">
+                <span>Adjusted: <strong id="buzz-adj-time">—</strong>ms</span>
+                <span>Raw: <strong id="buzz-raw-time">—</strong>ms</span>
+                <span>RTT: <strong id="buzz-rtt">—</strong>ms</span>
+              </div>
+            </div>
+            <div class="answer-buttons">
+              <button class="btn btn-correct btn-lg" id="btn-correct">✓ Correct (+10)</button>
+              <button class="btn btn-incorrect btn-lg" id="btn-incorrect">✗ Incorrect (Lock Out)</button>
+            </div>
+          </div>
+          <div class="control-secondary">
+            <button class="btn btn-outline" id="btn-next-question">Next Question →</button>
+            <button class="btn btn-outline btn-danger-outline" id="btn-reset-scores">Reset All Scores</button>
+          </div>
+          <div class="buzz-queue-section">
+            <h3>Buzz Queue</h3>
+            <div id="buzz-queue-list" class="buzz-queue-list"><p class="empty-state">No buzzes yet</p></div>
+          </div>
+          <div class="lockout-section">
+            <h3>Locked Out This Question</h3>
+            <div id="lockout-list" class="lockout-list"><p class="empty-state">None</p></div>
+          </div>
+        </div>
+        <div class="panel panel-teams">
+          <div class="panel-header-row">
+            <h2 id="teams-panel-title">Players</h2>
+            <div class="mode-toggle">
+              <button class="btn btn-sm" id="btn-mode-bee">🐝 Bee</button>
+              <button class="btn btn-sm" id="btn-mode-bowl">🏆 Bowl</button>
+            </div>
+          </div>
+          <div class="team-management hidden" id="team-management">
+            <div class="add-team-row">
+              <input type="text" id="input-team-name" placeholder="New team name..." class="input" />
+              <button class="btn btn-sm btn-primary" id="btn-add-team">+ Add Team</button>
+            </div>
+            <div id="teams-list" class="teams-list"></div>
+          </div>
+          <div id="players-list" class="players-list"></div>
+        </div>
+        <div class="panel panel-scores">
+          <h2>Scoreboard</h2>
+          <div id="scoreboard" class="scoreboard"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Player View -->
+    <div class="player-container hidden" id="player-view">
+      <header class="player-header">
+        <div class="header-left">
+          <span class="logo-small">🐝</span>
+          <span class="player-name-display" id="player-my-name">Player</span>
+        </div>
+        <div class="header-center">
+          <div class="room-code-display">
+            <span class="room-code-label">Room</span>
+            <span class="room-code-value" id="player-room-code">-----</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="latency-indicator">
+            <span class="latency-dot" id="latency-dot"></span>
+            <span id="player-rtt">— ms</span>
+          </div>
+        </div>
+      </header>
+      <div class="player-main">
+        <div class="buzzer-status" id="buzzer-status">
+          <div class="status-text" id="status-text">Waiting for host to open buzzer...</div>
+          <div class="question-number" id="player-question-num">Question 1</div>
+        </div>
+        <button class="buzzer-button disabled" id="btn-buzz" disabled>
+          <span class="buzz-text">BUZZ</span>
+          <span class="buzz-sub">Press Space or Click</span>
+        </button>
+        <div class="player-feedback hidden" id="player-feedback">
+          <div id="feedback-content"></div>
+        </div>
+        <div class="player-scoreboard">
+          <h3>Scores</h3>
+          <div id="player-scoreboard" class="scoreboard"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/sounds.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
