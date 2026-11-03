@@ -23,6 +23,30 @@
   const hostDash = $('#host-dashboard');
   const playerView = $('#player-view');
 
+  const roomCodeFromLink = window.location.pathname.match(/^\/room\/([^/]+)\/?$/)?.[1]
+    || new URLSearchParams(window.location.search).get('room');
+  if (roomCodeFromLink) {
+    const code = roomCodeFromLink.trim().toUpperCase();
+    const statusEl = $('#room-link-status');
+    $('#input-room-code').value = code;
+    if (!/^[A-Z0-9]{5}$/.test(code)) {
+      statusEl.textContent = 'This room link is invalid. Check the link or ask the host for a new one.';
+      statusEl.classList.remove('hidden');
+    } else {
+      fetch(`/api/rooms/${encodeURIComponent(code)}`)
+        .then(async (response) => {
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error);
+          statusEl.textContent = `Room ${result.code} is ready. Enter your name to join.`;
+          statusEl.classList.remove('hidden');
+        })
+        .catch((error) => {
+          statusEl.textContent = error.message || 'This room is no longer available. Ask the host for a new link.';
+          statusEl.classList.remove('hidden');
+        });
+    }
+  }
+
   // ─── View Switching ────────────────────────────────────────────────────────
   function showView(view) {
     landing.classList.toggle('hidden', view !== 'landing');
@@ -37,10 +61,24 @@
       if (res.success) {
         role = 'host';
         roomState = res.state;
+        $('#host-room-link').value = `${window.location.origin}/room/${encodeURIComponent(res.code)}`;
         showView('host');
         renderHostDashboard();
       }
     });
+  });
+
+  $('#btn-copy-room-link').addEventListener('click', async () => {
+    const button = $('#btn-copy-room-link');
+    try {
+      await navigator.clipboard.writeText($('#host-room-link').value);
+      button.textContent = 'Copied!';
+    } catch {
+      $('#host-room-link').select();
+      document.execCommand('copy');
+      button.textContent = 'Copied!';
+    }
+    setTimeout(() => { button.textContent = 'Copy Link'; }, 1800);
   });
 
   $('#btn-join-room').addEventListener('click', joinRoom);
@@ -303,6 +341,11 @@
     const s = roomState;
 
     $('#player-my-name').textContent = myName;
+    const myPlayer = s.players.find(p => p.id === mySocketId);
+    const myTeam = s.mode === 'bowl' ? s.teams.find(team => team.id === myPlayer?.teamId) : null;
+    const teamEl = $('#player-my-team');
+    teamEl.textContent = myTeam ? myTeam.name : '';
+    teamEl.classList.toggle('hidden', !myTeam);
     $('#player-room-code').textContent = s.code;
     $('#player-question-num').textContent = 'Question ' + s.questionNumber;
 
@@ -312,7 +355,6 @@
 
     // Check if I'm locked out
     const amLockedOut = s.lockedOutPlayers.includes(mySocketId);
-    const myPlayer = s.players.find(p => p.id === mySocketId);
     const teamLockedOut = s.mode === 'bowl' && myPlayer?.teamId && s.lockedOutTeams.includes(myPlayer.teamId);
 
     if (s.buzzerOpen && !amLockedOut && !teamLockedOut) {

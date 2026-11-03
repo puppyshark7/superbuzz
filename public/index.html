@@ -41,6 +41,7 @@
           <div class="action-section">
             <h2>Join a Game</h2>
             <p>Enter the room code from your host.</p>
+            <p class="error-message hidden" id="room-link-status" role="status"></p>
             <div class="join-form">
               <input type="text" id="input-room-code" placeholder="Room Code" maxlength="5" class="input input-code" autocomplete="off" spellcheck="false" />
               <input type="text" id="input-player-name" placeholder="Your Name" maxlength="30" class="input" autocomplete="off" />
@@ -65,6 +66,10 @@
           <div class="room-code-display">
             <span class="room-code-label">Room Code</span>
             <span class="room-code-value" id="host-room-code">-----</span>
+            <div class="room-share-link">
+              <input class="input" id="host-room-link" readonly aria-label="Room invitation link" />
+              <button class="btn btn-sm btn-outline" id="btn-copy-room-link" type="button">Copy Link</button>
+            </div>
           </div>
         </div>
         <div class="header-right">
@@ -147,6 +152,7 @@
       <header class="player-header">
         <div class="header-left">
           <span class="player-name-display" id="player-my-name">Player</span>
+          <span class="player-team-display hidden" id="player-my-team"></span>
         </div>
         <div class="header-center">
           <div class="room-code-display">

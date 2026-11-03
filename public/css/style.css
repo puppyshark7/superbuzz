@@ -440,6 +440,17 @@ h1, h2, h3, h4 {
   color: var(--accent-gold);
   letter-spacing: 0.15em;
 }
+.room-share-link {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+.room-share-link .input {
+  width: min(28vw, 20rem);
+  min-width: 11rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+}
 
 .header-right {
   display: flex;
@@ -876,6 +887,15 @@ h1, h2, h3, h4 {
 .player-name-display {
   font-weight: 700;
   font-size: 1.15rem;
+}
+.player-team-display {
+  margin-left: 0.55rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .latency-indicator {

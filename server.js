@@ -17,6 +17,18 @@ const io = new Server(httpServer, {
 
 app.use(express.static(join(__dirname, 'public')));
 
+app.get('/room/:code', (_req, res) => {
+  res.sendFile(join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/api/rooms/:code', (req, res) => {
+  const room = rooms.get(req.params.code.toUpperCase());
+  if (!room || !io.sockets.sockets.get(room.hostId)?.connected) {
+    return res.status(404).json({ available: false, error: 'This room is no longer available. Ask the host for a new link.' });
+  }
+  res.json({ available: true, code: room.code });
+});
+
 // ─── Data Structures ────────────────────────────────────────────────────────
 
 const rooms = new Map();
