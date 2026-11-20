@@ -351,6 +351,44 @@ h1, h2, h3, h4 {
   flex-direction: column;
   gap: 0.85rem;
 }
+.linked-room-code {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  text-align: center;
+}
+.linked-room-code span {
+  display: block;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.linked-room-code strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--accent-gold);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.25rem;
+  letter-spacing: 0.15em;
+}
+.room-link-mode #host-game-section,
+.room-link-mode #join-divider,
+.room-link-mode #input-room-code,
+.room-link-mode #landing-footer {
+  display: none;
+}
+.room-link-mode #linked-room-code {
+  display: block;
+}
+.room-link-mode .landing-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+.room-link-ready {
+  color: var(--accent-green);
+}
 
 .error-message {
   color: var(--accent-red);

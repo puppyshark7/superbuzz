@@ -17,6 +17,22 @@
         </div>
         <div class="landing-actions">
           <div class="action-section">
+            <h2>Join a Game</h2>
+            <p id="join-instructions">Enter the room code from your host.</p>
+            <p class="error-message hidden" id="room-link-status" role="status"></p>
+            <div class="join-form">
+              <div class="linked-room-code hidden" id="linked-room-code">
+                <span>Room Code</span>
+                <strong id="linked-room-code-value"></strong>
+              </div>
+              <input type="text" id="input-room-code" placeholder="Room Code" maxlength="5" class="input input-code" autocomplete="off" spellcheck="false" />
+              <input type="text" id="input-player-name" placeholder="Your Name" maxlength="30" class="input" autocomplete="off" />
+              <button class="btn btn-secondary btn-lg" id="btn-join-room">Join Room</button>
+            </div>
+            <p class="error-message" id="join-error"></p>
+          </div>
+          <div class="divider" id="join-divider"><span>OR</span></div>
+          <div class="action-section" id="host-game-section">
             <h2>Host a Game</h2>
             <p>Create a room and control the buzzer for your competition.</p>
             <div class="mode-select">
@@ -37,20 +53,8 @@
             </div>
             <button class="btn btn-primary btn-lg" id="btn-create-room">Create Room</button>
           </div>
-          <div class="divider"><span>OR</span></div>
-          <div class="action-section">
-            <h2>Join a Game</h2>
-            <p>Enter the room code from your host.</p>
-            <p class="error-message hidden" id="room-link-status" role="status"></p>
-            <div class="join-form">
-              <input type="text" id="input-room-code" placeholder="Room Code" maxlength="5" class="input input-code" autocomplete="off" spellcheck="false" />
-              <input type="text" id="input-player-name" placeholder="Your Name" maxlength="30" class="input" autocomplete="off" />
-              <button class="btn btn-secondary btn-lg" id="btn-join-room">Join Room</button>
-            </div>
-            <p class="error-message" id="join-error"></p>
-          </div>
         </div>
-        <div class="landing-footer">
+        <div class="landing-footer" id="landing-footer">
           <p>Millisecond-precision lag correction &bull; Real-time WebSocket</p>
         </div>
       </div>
@@ -80,21 +84,6 @@
       <div class="dashboard-grid">
         <div class="panel panel-controls">
           <h2>Buzzer Controls</h2>
-          <div class="control-buttons">
-            <button class="btn btn-buzzer-open btn-lg" id="btn-open-buzzer">Open Buzzer</button>
-            <button class="btn btn-buzzer-close btn-lg hidden" id="btn-close-buzzer">Close Buzzer</button>
-          </div>
-
-          <!-- 3-Buzz Rule Toggle (Bee Mode) -->
-          <div class="setting-toggle-card" id="setting-three-buzz-card">
-            <label class="toggle-control">
-              <input type="checkbox" id="toggle-three-buzz" checked />
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">3-Buzz Limit Rule</span>
-            </label>
-            <span class="setting-subtext">3rd wrong guess loses 1 pt and advances question</span>
-          </div>
-
           <div class="buzz-result-area hidden" id="buzz-result-area">
             <h3>Recognized Buzz</h3>
             <div class="recognized-buzz" id="recognized-buzz">
@@ -110,6 +99,21 @@
               <button class="btn btn-incorrect btn-lg" id="btn-incorrect">Incorrect (Lock Out)</button>
             </div>
           </div>
+          <div class="control-buttons">
+            <button class="btn btn-buzzer-open btn-lg" id="btn-open-buzzer">Open Buzzer</button>
+            <button class="btn btn-buzzer-close btn-lg hidden" id="btn-close-buzzer">Close Buzzer</button>
+          </div>
+
+          <!-- 3-Buzz Rule Toggle (Bee Mode) -->
+          <div class="setting-toggle-card" id="setting-three-buzz-card">
+            <label class="toggle-control">
+              <input type="checkbox" id="toggle-three-buzz" checked />
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">3-Buzz Limit Rule</span>
+            </label>
+            <span class="setting-subtext">3rd wrong guess loses 1 pt and advances question</span>
+          </div>
+
           <div class="control-secondary">
             <button class="btn btn-outline" id="btn-next-question">Next Question</button>
             <button class="btn btn-outline btn-danger-outline" id="btn-reset-scores">Reset All Scores</button>
@@ -119,7 +123,7 @@
             <div id="buzz-queue-list" class="buzz-queue-list"><p class="empty-state">No buzzes yet</p></div>
           </div>
           <div class="lockout-section">
-            <h3>Locked Out This Question</h3>
+            <h3>Player Lockouts</h3>
             <div id="lockout-list" class="lockout-list"><p class="empty-state">None</p></div>
           </div>
         </div>

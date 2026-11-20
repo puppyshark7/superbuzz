@@ -12,6 +12,7 @@
   let myName = '';
   let roomState = null;  // latest room state from server
   let mySocketId = null;
+  let linkedRoomCode = null;
 
   socket.on('connect', () => { mySocketId = socket.id; });
 
@@ -27,8 +28,15 @@
     || new URLSearchParams(window.location.search).get('room');
   if (roomCodeFromLink) {
     const code = roomCodeFromLink.trim().toUpperCase();
+    linkedRoomCode = code;
+    landing.classList.add('room-link-mode');
+    $('#join-instructions').textContent = 'Enter your name to join this room.';
+    $('#linked-room-code-value').textContent = code;
+    $('#linked-room-code').classList.remove('hidden');
+    $('#input-player-name').focus();
     const statusEl = $('#room-link-status');
     $('#input-room-code').value = code;
+    $('#btn-join-room').disabled = true;
     if (!/^[A-Z0-9]{5}$/.test(code)) {
       statusEl.textContent = 'This room link is invalid. Check the link or ask the host for a new one.';
       statusEl.classList.remove('hidden');
@@ -38,10 +46,13 @@
           const result = await response.json();
           if (!response.ok) throw new Error(result.error);
           statusEl.textContent = `Room ${result.code} is ready. Enter your name to join.`;
+          statusEl.classList.add('room-link-ready');
           statusEl.classList.remove('hidden');
+          $('#btn-join-room').disabled = false;
         })
         .catch((error) => {
           statusEl.textContent = error.message || 'This room is no longer available. Ask the host for a new link.';
+          statusEl.classList.remove('room-link-ready');
           statusEl.classList.remove('hidden');
         });
     }
@@ -87,7 +98,7 @@
   $('#input-room-code').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase(); });
 
   function joinRoom() {
-    const code = $('#input-room-code').value.trim();
+    const code = linkedRoomCode || $('#input-room-code').value.trim();
     const name = $('#input-player-name').value.trim();
     const errEl = $('#join-error');
     errEl.textContent = '';
@@ -238,12 +249,20 @@
 
     // Lockout list
     const lockEl = $('#lockout-list');
+    const questionLocks = new Set(s.questionLockedOutPlayers || []);
+    const questionTeamLocks = new Set(s.questionLockedOutTeams || []);
+    const individuallyUnlocked = new Set(s.questionUnlockedPlayers || []);
     if (s.lockedOutPlayers.length === 0) {
       lockEl.innerHTML = '<p class="empty-state">None</p>';
     } else {
+      const manualLocks = new Set(s.manuallyLockedOutPlayers || []);
       const names = s.lockedOutPlayers.map(pid => {
         const p = s.players.find(pl => pl.id === pid);
-        return p ? esc(p.name) : pid;
+        if (!p) return pid;
+        const reasons = [];
+        if (manualLocks.has(pid)) reasons.push('manual');
+        if (questionLocks.has(pid)) reasons.push('this question');
+        return `${esc(p.name)} (${reasons.join(', ')})`;
       });
       lockEl.innerHTML = names.map(n => `<span class="lockout-tag">Locked: ${n}</span>`).join(' ');
     }
@@ -282,16 +301,22 @@
     } else {
       playersEl.innerHTML = s.players.map(p => {
         const team = s.teams.find(t => t.id === p.teamId);
-        const isLocked = s.lockedOutPlayers.includes(p.id);
+        const isLocked = s.lockedOutPlayers.includes(p.id)
+          || (s.mode === 'bowl' && questionTeamLocks.has(p.teamId) && !individuallyUnlocked.has(p.id));
+        const isManuallyLocked = (s.manuallyLockedOutPlayers || []).includes(p.id);
+        const isQuestionLocked = questionLocks.has(p.id)
+          || (s.mode === 'bowl' && questionTeamLocks.has(p.teamId) && !individuallyUnlocked.has(p.id));
         return `
           <div class="player-card ${isLocked ? 'locked-out' : ''}">
             <div class="player-card-info">
               <strong>${esc(p.name)}</strong>
               ${team ? `<span class="player-team-tag">${esc(team.name)}</span>` : ''}
               <span class="player-rtt-tag">${p.rtt}ms</span>
-              ${isLocked ? '<span class="player-lockout-tag">[Locked]</span>' : ''}
+              ${isLocked ? `<span class="player-lockout-tag">[${isManuallyLocked ? 'Manual Lockout' : 'Locked'}]</span>` : ''}
             </div>
             <div class="player-card-actions">
+              ${isQuestionLocked ? `<button class="btn btn-xs btn-outline" onclick="unlockPlayerForQuestion('${p.id}')">Unlock This Question</button>` : ''}
+              <button class="btn btn-xs ${isManuallyLocked ? 'btn-outline' : 'btn-danger-outline'}" onclick="setManualLockout('${p.id}', ${!isManuallyLocked})">${isManuallyLocked ? 'Unlock' : 'Lock Out'}</button>
               ${s.mode === 'bowl' ? `
                 <select class="input input-sm" onchange="assignTeam('${p.id}', this.value)">
                   <option value="">No team</option>
@@ -312,6 +337,8 @@
   // Global functions for inline event handlers
   window.removeTeam = (teamId) => { socket.emit('team:remove', { teamId }); };
   window.assignTeam = (playerId, teamId) => { socket.emit('player:assign-team', { playerId, teamId: teamId || null }); };
+  window.setManualLockout = (playerId, locked) => { socket.emit('player:set-manual-lockout', { playerId, locked }); };
+  window.unlockPlayerForQuestion = (playerId) => { socket.emit('player:unlock-question', { playerId }); };
   window.kickPlayer = (playerId) => { if (confirm('Kick this player?')) socket.emit('player:kick', { playerId }); };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -355,7 +382,8 @@
 
     // Check if I'm locked out
     const amLockedOut = s.lockedOutPlayers.includes(mySocketId);
-    const teamLockedOut = s.mode === 'bowl' && myPlayer?.teamId && s.lockedOutTeams.includes(myPlayer.teamId);
+    const personallyUnlocked = (s.questionUnlockedPlayers || []).includes(mySocketId);
+    const teamLockedOut = s.mode === 'bowl' && myPlayer?.teamId && s.lockedOutTeams.includes(myPlayer.teamId) && !personallyUnlocked;
 
     if (s.buzzerOpen && !amLockedOut && !teamLockedOut) {
       canBuzz = true;
@@ -369,7 +397,10 @@
       buzzBtn.disabled = true;
       buzzBtn.classList.add('disabled');
       buzzBtn.classList.remove('active', 'pressed');
-      statusEl.textContent = teamLockedOut ? 'Your team is locked out this question' : 'You are locked out this question';
+      const manuallyLocked = (s.manuallyLockedOutPlayers || []).includes(mySocketId);
+      statusEl.textContent = manuallyLocked
+        ? 'The host has manually locked you out'
+        : teamLockedOut ? 'Your team is locked out this question' : 'You are locked out this question';
       statusEl.parentElement.className = 'buzzer-status locked-out';
     } else if (s.currentBuzzPlayerId) {
       canBuzz = false;

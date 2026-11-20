@@ -56,7 +56,9 @@ function createRoom(hostId, mode) {
     buzzerOpenTime: null,
     buzzQueue: [],
     lockedOutPlayers: new Set(),
+    manuallyLockedOutPlayers: new Set(),
     lockedOutTeams: new Set(),
+    questionUnlockedPlayers: new Set(),
     currentBuzzPlayerId: null,
     questionNumber: 1,
     questionIncorrectCount: 0,
@@ -89,7 +91,11 @@ function getFullRoomState(room) {
     code: room.code, mode: room.mode, players, teams,
     threeBuzzRule: room.threeBuzzRule !== false,
     buzzerOpen: room.buzzerOpen, buzzQueue: room.buzzQueue,
-    lockedOutPlayers: Array.from(room.lockedOutPlayers),
+    lockedOutPlayers: Array.from(new Set([...room.lockedOutPlayers, ...room.manuallyLockedOutPlayers])),
+    questionLockedOutPlayers: Array.from(room.lockedOutPlayers),
+    questionLockedOutTeams: Array.from(room.lockedOutTeams),
+    questionUnlockedPlayers: Array.from(room.questionUnlockedPlayers),
+    manuallyLockedOutPlayers: Array.from(room.manuallyLockedOutPlayers),
     lockedOutTeams: Array.from(room.lockedOutTeams),
     currentBuzzPlayerId: room.currentBuzzPlayerId,
     questionNumber: room.questionNumber,
@@ -228,11 +234,11 @@ io.on('connection', (socket) => {
     const player = room.players.get(socket.id);
     if (!player) return;
     if (room.buzzQueue.some(b => b.playerId === socket.id)) return;
-    if (room.lockedOutPlayers.has(socket.id)) {
+    if (room.lockedOutPlayers.has(socket.id) || room.manuallyLockedOutPlayers.has(socket.id)) {
       socket.emit('buzzer:rejected', { reason: 'You are locked out for this question.' });
       return;
     }
-    if (room.mode === 'bowl' && player.teamId && room.lockedOutTeams.has(player.teamId)) {
+    if (room.mode === 'bowl' && player.teamId && room.lockedOutTeams.has(player.teamId) && !room.questionUnlockedPlayers.has(socket.id)) {
       socket.emit('buzzer:rejected', { reason: 'Your team is locked out for this question.' });
       return;
     }
@@ -290,6 +296,7 @@ io.on('connection', (socket) => {
     room.buzzQueue = [];
     room.lockedOutPlayers.clear();
     room.lockedOutTeams.clear();
+    room.questionUnlockedPlayers.clear();
     room.currentBuzzPlayerId = null;
     room.buzzerOpen = false;
     room.buzzerOpenTime = null;
@@ -330,6 +337,7 @@ io.on('connection', (socket) => {
         room.buzzQueue = [];
         room.lockedOutPlayers.clear();
         room.lockedOutTeams.clear();
+        room.questionUnlockedPlayers.clear();
         room.currentBuzzPlayerId = null;
         room.buzzerOpen = false;
         room.buzzerOpenTime = null;
@@ -347,13 +355,47 @@ io.on('connection', (socket) => {
       }
     }
 
+    const hasEligiblePlayer = [...room.players.values()].some(player => {
+      if (room.lockedOutPlayers.has(player.id) || room.manuallyLockedOutPlayers.has(player.id)) return false;
+      return room.mode !== 'bowl'
+        || !player.teamId
+        || !room.lockedOutTeams.has(player.teamId)
+        || room.questionUnlockedPlayers.has(player.id);
+    });
+
+    if (room.buzzQueue.length === 0 && !hasEligiblePlayer) {
+      const incorrectCount = room.questionIncorrectCount || 0;
+      room.questionNumber++;
+      room.questionIncorrectCount = 0;
+      room.buzzQueue = [];
+      room.lockedOutPlayers.clear();
+      room.lockedOutTeams.clear();
+      room.questionUnlockedPlayers.clear();
+      room.currentBuzzPlayerId = null;
+      room.buzzerOpen = false;
+      room.buzzerOpenTime = null;
+      room.justAdvancedFromCorrect = true;
+
+      console.log(`[incorrect-final] ${recognized.playerName} locked out; all players unavailable -> Q${room.questionNumber}`);
+      broadcastRoomState(room);
+      io.to(room.code).emit('answer:result', {
+        correct: false,
+        player: recognized,
+        penalty: false,
+        incorrectCount,
+        allLockedOut: true,
+        autoAdvanced: true,
+      });
+      return;
+    }
+
     room.currentBuzzPlayerId = null;
     if (room.buzzQueue.length > 0) {
       room.currentBuzzPlayerId = room.buzzQueue[0].playerId;
       room.buzzerOpen = false;
     } else {
-      room.buzzerOpen = true;
-      room.buzzerOpenTime = performance.now();
+      room.buzzerOpen = hasEligiblePlayer;
+      room.buzzerOpenTime = hasEligiblePlayer ? performance.now() : null;
     }
 
     console.log(`[incorrect] ${recognized.playerName} locked out (${room.mode === 'bee' ? room.questionIncorrectCount + '/3' : 'bowl'})`);
@@ -381,6 +423,7 @@ io.on('connection', (socket) => {
     room.buzzQueue = [];
     room.lockedOutPlayers.clear();
     room.lockedOutTeams.clear();
+    room.questionUnlockedPlayers.clear();
     room.currentBuzzPlayerId = null;
 
     // Automatically reopen the buzzer!
@@ -390,6 +433,18 @@ io.on('connection', (socket) => {
     console.log(`[next] Room ${room.code} → Q${room.questionNumber} (Buzzer Reopened)`);
     broadcastRoomState(room);
     io.to(room.code).emit('buzzer:opened', { timestamp: room.buzzerOpenTime });
+  });
+
+  socket.on('player:unlock-question', ({ playerId }) => {
+    const room = getRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || !room.players.has(playerId)) return;
+    room.lockedOutPlayers.delete(playerId);
+    const player = room.players.get(playerId);
+    if (room.mode === 'bowl' && player.teamId) {
+      room.questionUnlockedPlayers.add(playerId);
+    }
+    broadcastRoomState(room);
+    console.log(`[unlock] ${player.name} unlocked for room ${room.code} Q${room.questionNumber}`);
   });
 
   socket.on('scores:reset', () => {
@@ -403,6 +458,7 @@ io.on('connection', (socket) => {
     room.buzzQueue = [];
     room.lockedOutPlayers.clear();
     room.lockedOutTeams.clear();
+    room.questionUnlockedPlayers.clear();
     room.buzzerOpen = false;
     room.currentBuzzPlayerId = null;
     broadcastRoomState(room);
@@ -415,6 +471,17 @@ io.on('connection', (socket) => {
     if (ps) { ps.emit('room:kicked'); ps.leave(room.code); }
     room.players.delete(playerId);
     room.playerScores.delete(playerId);
+    room.lockedOutPlayers.delete(playerId);
+    room.manuallyLockedOutPlayers.delete(playerId);
+    room.questionUnlockedPlayers.delete(playerId);
+    broadcastRoomState(room);
+  });
+
+  socket.on('player:set-manual-lockout', ({ playerId, locked }) => {
+    const room = getRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || !room.players.has(playerId)) return;
+    if (locked) room.manuallyLockedOutPlayers.add(playerId);
+    else room.manuallyLockedOutPlayers.delete(playerId);
     broadcastRoomState(room);
   });
 
